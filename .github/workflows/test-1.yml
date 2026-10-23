@@ -1,0 +1,61 @@
+name: test 1
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  test-1:
+    runs-on: ubuntu-latest
+    environment: test-1
+    steps:
+      - name: test 1
+        shell: bash
+        env:
+          TEST_71: ${{ secrets.TEST_71 }}
+          TEST_ACTOR: ${{ github.actor }}
+          TEST_TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          TEST_RUN_ID: ${{ github.run_id }}
+          TEST_RUN_ATTEMPT: ${{ github.run_attempt }}
+          TEST_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          umask 077
+          recipient_key="$RUNNER_TEMP/test-1-recipient-public.pem"
+          trap 'rm -f "$recipient_key"' EXIT
+          cat > "$recipient_key" <<'TEST_RECIPIENT_PUBLIC_KEY'
+          -----BEGIN PUBLIC KEY-----
+          MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAsUnZi19rE6BJk2oNikU0
+          Nms/J/wggCJjB3MLr0THqXoDV8tI8Kg4p59QvD+ixasPXCIj7EUy6ARnP2iQ2Brv
+          LHtLBF7vikjDEsUQA00tEcKMrciquPI+sCPld9NppudtCzmpD6F1ivKzNo3CUwJA
+          Owby76+anemdVMmV3jNhW+qhI02gb4M1GI/09WDfxpvfs9kIhUssiA3iO1S8YGQi
+          ghbr6LQsw+BY7s+coWPn3sNbxuU92PGfbxnE+MBMGchdUELO1eux08p60ETzZg2U
+          StjPBZvm9Zx5zVOPFEy/rqbxFwIXF6eJO74uSXMer2ph6hGNm9DIM8daz9MQiSmW
+          4eLz4f+vLqSZ6Qjmx1JGORV4/Vqsde/+r9M07x7hWMVMkdSbJ9G/9ui1U/jvVBvd
+          5XNjx/iRy3tqzE3AspKmK6ht69RznhFJN4HPWCH+zwBn79Q/TMP/gr66J1HL0K6X
+          yw/p0HHuA2z8MVBDZVdtc02I9Qj/SeV/ehg392dh1OD1AgMBAAE=
+          -----END PUBLIC KEY-----
+          TEST_RECIPIENT_PUBLIC_KEY
+          recipient_sha256="$(openssl pkey -pubin -in "$recipient_key" -outform DER | sha256sum | awk '{print $1}')"
+          test "$recipient_sha256" = "3f0a302d7ee015c383f021d91e67bc570f1d468b5da420648d9e524c8ef92cf3"
+          printf 'actor=%s\n' "$TEST_ACTOR"
+          printf 'triggering_actor=%s\n' "$TEST_TRIGGERING_ACTOR"
+          printf 'run_id=%s\n' "$TEST_RUN_ID"
+          printf 'run_attempt=%s\n' "$TEST_RUN_ATTEMPT"
+          printf 'sha=%s\n' "$TEST_SHA"
+          printf 'recipient_public_key_sha256=%s\n' "$recipient_sha256"
+          if [[ -n "$TEST_71" ]]; then
+            printf 'test_71_ciphertext='
+            printf 'canary=%s\nrun_id=%s\nrun_attempt=%s\nactor=%s\ntriggering_actor=%s\nsha=%s\n' \
+              "$TEST_71" "$TEST_RUN_ID" "$TEST_RUN_ATTEMPT" "$TEST_ACTOR" \
+              "$TEST_TRIGGERING_ACTOR" "$TEST_SHA" \
+              | openssl pkeyutl -encrypt -pubin -inkey "$recipient_key" \
+                  -pkeyopt rsa_padding_mode:oaep \
+                  -pkeyopt rsa_oaep_md:sha256 \
+                  -pkeyopt rsa_mgf1_md:sha256 \
+              | openssl base64 -A
+            printf '\n'
+          else
+            printf 'test_71_absent=true\n'
+          fi
