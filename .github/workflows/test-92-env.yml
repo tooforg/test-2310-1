@@ -1,0 +1,14 @@
+name: test 92 env
+on:
+  workflow_dispatch:
+permissions: {}
+jobs:
+  test-92:
+    runs-on: ubuntu-latest
+    environment: test-1
+    steps:
+      - name: test 92
+        run: |
+          echo "actor=${{ github.actor }}"
+          echo "triggering_actor=${{ github.triggering_actor }}"
+          echo "run_attempt=${{ github.run_attempt }}"
